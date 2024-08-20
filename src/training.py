@@ -60,7 +60,7 @@ def save_remote(local_path, remote_path, local_mode, remote_mode):
         f.write(content)
 
 
-gpt2_server_root = "hdfs://llm4rec"
+gpt2_server_root = "/datain/v-yinju/rqvae-zzx/models/cllm4rec/Beauty"
 local_root = "tmp"
 if not os.path.exists(local_root):
     os.makedirs(local_root, exist_ok=True)
@@ -104,10 +104,8 @@ def main():
     
     # Parse the command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str,
-        help="specify the dataset for experiment")
-    parser.add_argument("--lambda_V", type=str,
-        help="specify the dataset for experiment")
+    parser.add_argument("--dataset", type=str, help="specify the dataset for experiment")
+    parser.add_argument("--lambda_V", type=str, help="")
     args = parser.parse_args()
     
     dataset = args.dataset
@@ -125,7 +123,8 @@ def main():
         Get the basic information of the dataset
     '''
     accelerator.print("-----Begin Obtaining Dataset Info-----")
-    data_root = os.path.join(gpt2_server_root, "dataset", dataset)
+    # data_root = '/datain/v-yinju/rqvae-zzx/data/CLLM4Rec'
+    data_root = os.path.join('/datain/v-yinju/rqvae-zzx/data/CLLM4Rec', dataset)
     meta_path = os.path.join(data_root, "meta.pkl")
 
     with fsspec.open(meta_path, "rb") as f:
@@ -137,16 +136,18 @@ def main():
     accelerator.print(f"num_items: {num_items}")
     accelerator.print("-----End Obtaining Dataset Info-----\n")
 
-
     '''
         Obtain the tokenizer with user/item tokens
     '''
     accelerator.print("-----Begin Obtaining the Tokenizer-----")
-    tokenizer_root = os.path.join(gpt2_server_root, "model", "pretrained", "tokenizer")
+    # tokenizer_root = os.path.join(gpt2_server_root, "model", "pretrained", "tokenizer")
+    tokenizer_root = '/datain/v-yinju/gpt2'
     accelerator.print(f"Loading pretrained tokenizer from {tokenizer_root}...")
-    remote_vocab_file = os.path.join(tokenizer_root, "vocab_file.json")
+    # remote_vocab_file = os.path.join(tokenizer_root, "vocab_file.json")
+    remote_vocab_file = os.path.join(tokenizer_root, "vocab.json")
     remote_merges_file = os.path.join(tokenizer_root, "merges.txt")
-    vocab_file = os.path.join(local_root, "vocab_file.json")
+    # vocab_file = os.path.join(local_root, "vocab_file.json")
+    vocab_file = os.path.join(local_root, "vocab.json")
     merges_file = os.path.join(local_root, "merges.txt")
 
     if accelerator.is_main_process:
@@ -206,10 +207,11 @@ def main():
     '''
     accelerator.print("-----Begin Instantiating the Pretrained GPT Model-----")
     gpt2model = GPT2Model(config)
-    pretrained_root = os.path.join(gpt2_server_root, "model", "pretrained")
+    # pretrained_root = os.path.join(gpt2_server_root, "model", "pretrained")
+    pretrained_root = '/datain/v-yinju/gpt2'
     accelerator.print(f"Loading pretrained weights from {pretrained_root}...")
-    remote_pretrained_weights_path = os.path.join(pretrained_root, "gpt2", "pytorch_model.bin")
-    local_pretrained_weights_path = os.path.join(local_root, "gpt2", "pytorch_model.bin")
+    remote_pretrained_weights_path = os.path.join(pretrained_root, "pytorch_model.bin")
+    local_pretrained_weights_path = os.path.join(local_root, "pytorch_model.bin")
     if accelerator.is_main_process:
         save_local(remote_pretrained_weights_path, local_pretrained_weights_path, "rb", "wb")
     accelerator.wait_for_everyone()
@@ -283,7 +285,7 @@ def main():
     '''
     accelerator.print("-----Begin Setting Up the Training Details-----")
     learning_rate = 1e-3
-    batch_size = 20
+    batch_size = 6
     num_pretrained_epochs = 10
     num_epochs = 100
 
@@ -333,11 +335,12 @@ def main():
     collaborative_best_loss = float('inf')
 
     # The place to save the content model weights
-    content_model_root = os.path.join(server_root, "model", dataset, "content")
+    server_root = '/datain/v-yinju/rqvae-zzx/models/cllm4rec'
+    content_model_root = os.path.join(server_root, dataset, "content")
     accelerator.print(f"Weights will be saved to {content_model_root}!")
     
     # The place to save the collaborative model weights
-    collaborative_model_root = os.path.join(server_root, "model", dataset, "collaborative")
+    collaborative_model_root = os.path.join(server_root, dataset, "collaborative")
     accelerator.print(f"Weights will be saved to {collaborative_model_root}!")
 
     accelerator.print("-----End Setting Up the Training Details-----\n")
@@ -561,3 +564,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    import smtplib
+    from email.mime.text import MIMEText
+    mail_host = 'smtp.qq.com'
+    mail_code = 'ouzplpngooqndjcb'
+    sender = '1849334588@qq.com'
+    receiver = 'esperanto1949@foxmail.com'
+
+    task = '[v519: pretrain cllm4rec]'
+    message = MIMEText('Task {task} Finished'.format(task = task), 'plain', 'utf-8')
+    message['Subject'] = 'Auto Email'
+    message['From'] = sender
+    message['To'] = receiver
+
+    server = smtplib.SMTP_SSL("smtp.qq.com", 465)
+    server.login(sender, mail_code)
+    server.sendmail(sender, receiver, message.as_string())
+
+    server.quit()
