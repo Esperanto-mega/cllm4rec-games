@@ -108,6 +108,8 @@ def main():
     # Parse the command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, help="specify the dataset for experiment")
+    parser.add_argument("--batch_size", type=int, default=8,  help="")
+    parser.add_argument("--val_batch_size", type=int, default=256,  help="")
     parser.add_argument("--lambda_V", type=str, help="")
     args = parser.parse_args()
     
@@ -319,8 +321,8 @@ def main():
     '''
     accelerator.print("-----Begin Setting Up the Training Details-----")
     learning_rate = 1e-4
-    batch_size = 20
-    val_batch_size = 256
+    batch_size = args.batch_size
+    val_batch_size = args.val_batch_size
     num_epochs = 150
 
 
