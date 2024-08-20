@@ -60,7 +60,7 @@ def save_remote(local_path, remote_path, local_mode, remote_mode):
         f.write(content)
 
 
-gpt2_server_root = "/datain/v-yinju/rqvae-zzx/models/cllm4rec/Beauty"
+gpt2_server_root = "/datain/v-yinju/rqvae-zzx/models/cllm4rec"
 local_root = "tmp"
 if not os.path.exists(local_root):
     os.makedirs(local_root, exist_ok=True)
