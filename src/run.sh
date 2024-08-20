@@ -2,6 +2,7 @@
 
 lambda_V=1
 dataset=Beauty
+save_dir=/datain/v-yinju/rqvae-zzx/models/cllm4rec/$dataset
 
 accelerate launch --multi_gpu --num_processes=8 ~/cllm4rec-games/src/training.py --dataset $dataset --lambda_V $lambda_V
 
