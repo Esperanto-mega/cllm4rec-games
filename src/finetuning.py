@@ -63,7 +63,7 @@ def save_remote(local_path, remote_path, local_mode, remote_mode):
     with fsspec.open(remote_path, remote_mode) as f:
         f.write(content)
 
-server_root = "hdfs://llm4rec"
+server_root = "/datain/v-yinju/rqvae-zzx/models/cllm4rec/Beauty"
 local_root = "tmp"
 if not os.path.exists(local_root):
     os.makedirs(local_root, exist_ok=True)
@@ -107,10 +107,8 @@ def main():
     
     # Parse the command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str,
-        help="specify the dataset for experiment")
-    parser.add_argument("--lambda_V", type=str,
-        help="specify the dataset for experiment")
+    parser.add_argument("--dataset", type=str, help="specify the dataset for experiment")
+    parser.add_argument("--lambda_V", type=str, help="")
     args = parser.parse_args()
     
     dataset = args.dataset
@@ -128,7 +126,8 @@ def main():
         Get the basic information of the dataset
     '''
     accelerator.print("-----Begin Obtaining Dataset Info-----")
-    data_root = os.path.join(server_root, "dataset", dataset)
+    # data_root = '/datain/v-yinju/rqvae-zzx/data/CLLM4Rec'
+    data_root = os.path.join('/datain/v-yinju/rqvae-zzx/data/CLLM4Rec', dataset)
     meta_path = os.path.join(data_root, "meta.pkl")
 
     with fsspec.open(meta_path, "rb") as f:
@@ -145,11 +144,14 @@ def main():
         Obtain the tokenizer with user/item tokens
     '''
     accelerator.print("-----Begin Obtaining the Tokenizer-----")
-    tokenizer_root = os.path.join(server_root, "model", "pretrained", "tokenizer")
+    # tokenizer_root = os.path.join(server_root, "model", "pretrained", "tokenizer")
+    tokenizer_root = '/datain/v-yinju/gpt2'
     accelerator.print(f"Loading pretrained tokenizer from {tokenizer_root}...")
-    remote_vocab_file = os.path.join(tokenizer_root, "vocab_file.json")
+    # remote_vocab_file = os.path.join(tokenizer_root, "vocab_file.json")
+    remote_vocab_file = os.path.join(tokenizer_root, "vocab.json")
     remote_merges_file = os.path.join(tokenizer_root, "merges.txt")
-    vocab_file = os.path.join(local_root, "vocab_file.json")
+    # vocab_file = os.path.join(local_root, "vocab_file.json")
+    vocab_file = os.path.join(local_root, "vocab.json")
     merges_file = os.path.join(local_root, "merges.txt")
 
     if accelerator.is_main_process:
@@ -220,10 +222,13 @@ def main():
     '''
     accelerator.print("-----Begin Instantiating the Pretrained GPT Model-----")
     gpt2model = GPT2Model(config)
-    pretrained_root = os.path.join(server_root, "model", "pretrained")
+    # pretrained_root = os.path.join(server_root, "model", "pretrained")
+    pretrained_root = '/datain/v-yinju/gpt2'
     accelerator.print(f"Loading pretrained weights from {pretrained_root}...")
-    remote_pretrained_weights_path = os.path.join(pretrained_root, "gpt2", "pytorch_model.bin")
-    local_pretrained_weights_path = os.path.join(local_root, "gpt2", "pytorch_model.bin")
+    # remote_pretrained_weights_path = os.path.join(pretrained_root, "gpt2", "pytorch_model.bin")
+    # local_pretrained_weights_path = os.path.join(local_root, "gpt2", "pytorch_model.bin")
+    remote_pretrained_weights_path = os.path.join(pretrained_root, "pytorch_model.bin")
+    local_pretrained_weights_path = os.path.join(local_root, "pytorch_model.bin")
     if accelerator.is_main_process:
         save_local(remote_pretrained_weights_path, local_pretrained_weights_path, "rb", "wb")
     accelerator.wait_for_everyone()
@@ -238,7 +243,7 @@ def main():
     accelerator.print("-----Begin Instantiating the Content GPT Model-----")
     content_base_model = GPT4RecommendationBaseModel(config, gpt2model)
     
-    pretrained_root = os.path.join(server_root, "model", dataset, "content")
+    pretrained_root = os.path.join(server_root, dataset, "content")
     remote_pretrained_user_emb_path = os.path.join(pretrained_root, f"user_embeddings_{args.lambda_V}.pt") 
     remote_pretrained_item_emb_path = os.path.join(pretrained_root, f"item_embeddings_{args.lambda_V}.pt") 
     local_pretrained_user_emb_path = os.path.join(local_root, f"user_embeddings_{args.lambda_V}.pt")
@@ -267,7 +272,7 @@ def main():
     accelerator.print("-----Begin Instantiating the Content GPT Model-----")
     base_model = GPT4RecommendationBaseModel(config, gpt2model)
 
-    pretrained_root = os.path.join(server_root, "model", dataset, "collaborative")
+    pretrained_root = os.path.join(server_root, dataset, "collaborative")
     remote_pretrained_user_emb_path = os.path.join(pretrained_root, f"user_embeddings_{args.lambda_V}.pt") 
     remote_pretrained_item_emb_path = os.path.join(pretrained_root, f"item_embeddings_{args.lambda_V}.pt") 
     local_pretrained_user_emb_path = os.path.join(local_root, f"user_embeddings_{args.lambda_V}.pt")
@@ -366,17 +371,22 @@ def main():
     # Initialize best_loss with infinity
     review_best_loss = float('inf')
     best_val_rec_loss = float('inf')
-    best_recall_20 = -float('inf')
-    best_recall_40 = -float('inf')
-    best_NDCG_100 = -float('inf')
+    # best_recall_20 = -float('inf')
+    # best_recall_40 = -float('inf')
+    # best_NDCG_100 = -float('inf')
+    best_recall_1 = -float('inf')
+    best_recall_5 = -float('inf')
+    best_recall_10 = -float('inf')
+    best_NDCG_5 = -float('inf')
+    best_NDCG_10 = -float('inf')
     best_sum = -float('inf')
 
     # The place to save the recommendation model weights
-    rec_model_root = os.path.join(server_root, "model", dataset, "rec")
+    rec_model_root = os.path.join(server_root, dataset, "rec")
     accelerator.print(f"Weights will be saved to {rec_model_root}!")
     
     # The place to save the content model weights
-    content_model_root = os.path.join(server_root, "model", dataset, "content")
+    content_model_root = os.path.join(server_root, dataset, "content")
     accelerator.print(f"Weights will be saved to {content_model_root}!")
     accelerator.print("-----End Setting Up the Training Details-----\n")
 
@@ -444,9 +454,14 @@ def main():
         # Set the model to evaluation mode
         rec_model.eval()  
         val_rec_loss = 0
-        cur_recall_20 = 0
-        cur_recall_40 = 0
-        cur_NDCG_100 = 0
+        cur_recall_1 = 0
+        cur_recall_5 = 0
+        cur_recall_10 = 0
+        cur_NDCG_5 = 0
+        cur_NDCG_10 = 0
+        # cur_recall_20 = 0
+        # cur_recall_40 = 0
+        # cur_NDCG_100 = 0
 
         accelerator.wait_for_everyone()
         with torch.no_grad():
@@ -469,26 +484,34 @@ def main():
                 target_mat = target_mat.cpu().numpy()
                 item_scores = item_scores.cpu().numpy()
                 val_rec_loss += rec_loss.item()
-                cur_recall_20 += Recall_at_k(target_mat, item_scores, k=20, agg="sum")
-                cur_recall_40 += Recall_at_k(target_mat, item_scores, k=40, agg="sum")
-                cur_NDCG_100 += NDCG_at_k(target_mat, item_scores, k=100, agg="sum")
+                cur_recall_1 += Recall_at_k(target_mat, item_scores, k=1, agg="sum")
+                cur_recall_5 += Recall_at_k(target_mat, item_scores, k=5, agg="sum")
+                cur_recall_10 += Recall_at_k(target_mat, item_scores, k=10, agg="sum")
+                cur_NDCG_5 += NDCG_at_k(target_mat, item_scores, k=5, agg="sum")
+                cur_NDCG_10 += NDCG_at_k(target_mat, item_scores, k=10, agg="sum")
 
         # Calculate average Recall@K and NDCG@K for the validation set
         val_rec_loss /= len(val_data_loader)
-        cur_recall_20 /= len(val_data_gen)
-        cur_recall_40 /= len(val_data_gen)
-        cur_NDCG_100 /= len(val_data_gen)
-        cur_sum = cur_recall_20 + cur_recall_40 + cur_NDCG_100
+        cur_recall_1 /= len(val_data_gen)
+        cur_recall_5 /= len(val_data_gen)
+        cur_recall_10 /= len(val_data_gen)
+        cur_NDCG_5 /= len(val_data_gen)
+        cur_NDCG_10 /= len(val_data_gen)
+        cur_sum = cur_recall_1 + cur_recall_5 + cur_recall_10 + cur_NDCG_5 + cur_NDCG_10
     
         # Update the best metrics
         if val_rec_loss < best_val_rec_loss:
             best_val_rec_loss = val_rec_loss
-        if cur_recall_20 > best_recall_20:
-            best_recall_20 = cur_recall_20
-        if cur_recall_40 > best_recall_40:
-            best_recall_40 = cur_recall_40
-        if cur_NDCG_100 > best_NDCG_100:
-            best_NDCG_100 = cur_NDCG_100
+        if cur_recall_1 > best_recall_1:
+            best_recall_1 = cur_recall_1
+        if cur_recall_5 > best_recall_5:
+            best_recall_5 = cur_recall_5
+        if cur_recall_10 > best_recall_10:
+            best_recall_10 = cur_recall_10
+        if cur_NDCG_5 > best_NDCG_5:
+            best_NDCG_5 = cur_NDCG_5
+        if cur_NDCG_10 > best_NDCG_10:
+            best_NDCG_10 = cur_NDCG_10
         if cur_sum > best_sum:
             best_sum = cur_sum
             if accelerator.is_main_process:
@@ -509,9 +532,11 @@ def main():
         accelerator.print(f"Best model saved to {rec_model_root}")
         accelerator.print(f"Train Rec Loss: {train_rec_loss:.4f}")
         accelerator.print(f"Val Rec Loss: {val_rec_loss:.4f} / Best Val Rec Loss: {best_val_rec_loss:.4f}")
-        accelerator.print(f"Cur Recall@20: {cur_recall_20:.4f} / Best Recall@20: {best_recall_20:.4f}")
-        accelerator.print(f"Cur Recall@40: {cur_recall_40:.4f} / Best Recall@40: {best_recall_40:.4f}")
-        accelerator.print(f"Cur NDCG@100: {cur_NDCG_100:.4f} / Best NDCG@100: {best_NDCG_100:.4f}")    
+        accelerator.print(f"Cur Recall@1: {cur_recall_1:.4f} / Best Recall@1: {best_recall_1:.4f}")
+        accelerator.print(f"Cur Recall@5: {cur_recall_5:.4f} / Best Recall@5: {best_recall_5:.4f}")
+        accelerator.print(f"Cur Recall@10: {cur_recall_10:.4f} / Best Recall@10: {best_recall_10:.4f}")
+        accelerator.print(f"Cur NDCG@5: {cur_NDCG_5:.4f} / Best NDCG@5: {best_NDCG_5:.4f}")  
+        accelerator.print(f"Cur NDCG@10: {cur_NDCG_10:.4f} / Best NDCG@10: {best_NDCG_10:.4f}")    
     
         review_total_loss = 0
         regularize_total_loss = 0
@@ -590,3 +615,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    import smtplib
+    from email.mime.text import MIMEText
+    mail_host = 'smtp.qq.com'
+    mail_code = 'ouzplpngooqndjcb'
+    sender = '1849334588@qq.com'
+    receiver = 'esperanto1949@foxmail.com'
+
+    task = '[v519: finetune cllm4rec]'
+    message = MIMEText('Task {task} Finished'.format(task = task), 'plain', 'utf-8')
+    message['Subject'] = 'Auto Email'
+    message['From'] = sender
+    message['To'] = receiver
+
+    server = smtplib.SMTP_SSL("smtp.qq.com", 465)
+    server.login(sender, mail_code)
+    server.sendmail(sender, receiver, message.as_string())
+
+    server.quit()
