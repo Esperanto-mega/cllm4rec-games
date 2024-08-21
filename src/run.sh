@@ -13,3 +13,6 @@ accelerate launch --multi_gpu --num_processes=8 ~/cllm4rec-games/src/finetuning.
   --val_batch_size 256
 
 python ~/cllm4rec-games/src/predict.py --dataset $dataset --lambda_V $lambda_V
+
+cd ~/rq-llama
+source instruments_train.sh
