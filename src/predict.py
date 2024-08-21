@@ -60,7 +60,7 @@ def save_remote(local_path, remote_path, local_mode, remote_mode):
     with fsspec.open(remote_path, remote_mode) as f:
         f.write(content)
 
-server_root = "hdfs://llm4rec"
+server_root = "/datain/v-yinju/rqvae-zzx/models/cllm4rec"
 local_root = "tmp"
 if not os.path.exists(local_root):
     os.makedirs(local_root, exist_ok=True)
@@ -100,10 +100,8 @@ _config = {
 def main():
     # Parse the command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str,
-        help="specify the dataset for experiment")
-    parser.add_argument("--lambda_V", type=str,
-        help="specify the dataset for experiment")
+    parser.add_argument("--dataset", type=str, help="specify the dataset for experiment")
+    parser.add_argument("--lambda_V", type=str, help="specify the dataset for experiment")
     args = parser.parse_args()
     
     dataset = args.dataset
@@ -123,7 +121,8 @@ def main():
         Get the basic information of the dataset
     '''
     print("-----Begin Obtaining Dataset Info-----")
-    data_root = os.path.join(server_root, "dataset", dataset)
+    # data_root = os.path.join(server_root, "dataset", dataset)
+    data_root = os.path.join('/datain/v-yinju/rqvae-zzx/data/CLLM4Rec', dataset)
     meta_path = os.path.join(data_root, "meta.pkl")
 
     with fsspec.open(meta_path, "rb") as f:
@@ -140,11 +139,14 @@ def main():
         Obtain the tokenizer with user/item tokens
     '''
     print("-----Begin Obtaining the Tokenizer-----")
-    tokenizer_root = os.path.join(server_root, "model", "pretrained", "tokenizer")
+    # tokenizer_root = os.path.join(server_root, "model", "pretrained", "tokenizer")
+    tokenizer_root = '/datain/v-yinju/gpt2'
     print(f"Loading pretrained tokenizer from {tokenizer_root}...")
-    remote_vocab_file = os.path.join(tokenizer_root, "vocab_file.json")
+    # remote_vocab_file = os.path.join(tokenizer_root, "vocab_file.json")
+    remote_vocab_file = os.path.join(tokenizer_root, "vocab.json")
     remote_merges_file = os.path.join(tokenizer_root, "merges.txt")
-    vocab_file = os.path.join(local_root, "vocab_file.json")
+    # vocab_file = os.path.join(local_root, "vocab_file.json")
+    vocab_file = os.path.join(local_root, "vocab.json")
     merges_file = os.path.join(local_root, "merges.txt")
 
     save_local(remote_vocab_file, vocab_file, "r", "w")
@@ -196,10 +198,13 @@ def main():
     '''
     print("-----Begin Instantiating the Pretrained GPT Model-----")
     gpt2model = GPT2Model(config)
-    pretrained_root = os.path.join(server_root, "model", "pretrained")
+    # pretrained_root = os.path.join(server_root, "model", "pretrained")
+    pretrained_root = '/datain/v-yinju/gpt2'
     print(f"Loading pretrained weights from {pretrained_root}...")
-    remote_pretrained_weights_path = os.path.join(pretrained_root, "gpt2", "pytorch_model.bin")
-    local_pretrained_weights_path = os.path.join(local_root, "gpt2", "pytorch_model.bin")
+    # remote_pretrained_weights_path = os.path.join(pretrained_root, "gpt2", "pytorch_model.bin")
+    # local_pretrained_weights_path = os.path.join(local_root, "gpt2", "pytorch_model.bin")
+    remote_pretrained_weights_path = os.path.join(pretrained_root, "pytorch_model.bin")
+    local_pretrained_weights_path = os.path.join(local_root, "pytorch_model.bin")
     save_local(remote_pretrained_weights_path, local_pretrained_weights_path, "rb", "wb")
     gpt2model.load_state_dict(torch.load(local_pretrained_weights_path), strict=False)
     print("Success!")
@@ -212,7 +217,8 @@ def main():
     print("-----Begin Instantiating the Content GPT Model-----")
     base_model = GPT4RecommendationBaseModel(config, gpt2model)
 
-    pretrained_root = os.path.join(server_root, "model", dataset, "rec")
+    # pretrained_root = os.path.join(server_root, "model", dataset, "rec")
+    pretrained_root = os.path.join(server_root, dataset, "rec")
     remote_pretrained_user_emb_path = os.path.join(pretrained_root, f"user_embeddings_{args.lambda_V}.pt") 
     remote_pretrained_item_emb_path = os.path.join(pretrained_root, f"item_embeddings_{args.lambda_V}.pt") 
     local_pretrained_user_emb_path = os.path.join(local_root, f"user_embeddings_{args.lambda_V}.pt")
@@ -251,9 +257,11 @@ def main():
     
     # Set the model to evaluation mode
     rec_model.eval()  
-    cur_recall_20 = 0
-    cur_recall_40 = 0
-    cur_NDCG_100 = 0
+    cur_recall_1 = 0
+    cur_recall_5 = 0
+    cur_recall_10 = 0
+    cur_NDCG_5 = 0
+    cur_NDCG_10 = 0
 
     with torch.no_grad():
         for input_ids, train_mat, target_mat, attention_mask in test_data_loader:
@@ -274,25 +282,50 @@ def main():
             # Calculate Recall@K and NDCG@K for each user
             target_mat = target_mat.cpu().numpy()
             item_scores = item_scores.cpu().numpy()
-            cur_recall_20 += Recall_at_k(target_mat, item_scores, k=20, agg="sum")
-            cur_recall_40 += Recall_at_k(target_mat, item_scores, k=40, agg="sum")
-            cur_NDCG_100 += NDCG_at_k(target_mat, item_scores, k=100, agg="sum")
+            cur_recall_1 += Recall_at_k(target_mat, item_scores, k=1, agg="sum")
+            cur_recall_5 += Recall_at_k(target_mat, item_scores, k=5, agg="sum")
+            cur_recall_10 += Recall_at_k(target_mat, item_scores, k=10, agg="sum")
+            cur_NDCG_5 += NDCG_at_k(target_mat, item_scores, k=5, agg="sum")
+            cur_NDCG_10 += NDCG_at_k(target_mat, item_scores, k=10, agg="sum")
 
     # Calculate average Recall@K and NDCG@K for the validation set
-    cur_recall_20 /= len(test_data_gen)
-    cur_recall_40 /= len(test_data_gen)
-    cur_NDCG_100 /= len(test_data_gen)
+    cur_recall_1 /= len(test_data_gen)
+    cur_recall_5 /= len(test_data_gen)
+    cur_recall_10 /= len(test_data_gen)
+    cur_NDCG_5 /= len(test_data_gen)
+    cur_NDCG_10 /= len(test_data_gen)
     
     print(f"Final Testing Results:")
-    print(f"Recall@20: {cur_recall_20:.4f}")
-    print(f"Recall@40: {cur_recall_40:.4f}")
-    print(f"NDCG@100: {cur_NDCG_100:.4f}")
+    print(f"Recall@1: {cur_recall_1:.4f}")
+    print(f"Recall@5: {cur_recall_5:.4f}")
+    print(f"Recall@40: {cur_recall_10:.4f}")
+    print(f"NDCG@100: {cur_NDCG_5:.4f}")
+    print(f"NDCG@100: {cur_NDCG_10:.4f}")
     
     results_path = os.path.join(pretrained_root, f"results_{args.lambda_V}.txt")
     with fsspec.open(results_path, "w") as f:
-        f.write("Recall@20,Recall@40,NDCG@100\n")
-        f.write(f"{cur_recall_20:.4f},{cur_recall_40:.4f},{cur_NDCG_100:.4f}")
+        f.write("Recall@1,Recall@5,Recall@10,NDCG@5,NDCG@10\n")
+        f.write(f"{cur_recall_1:.4f},{cur_recall_5:.4f},{cur_recall_10:.4f},{cur_NDCG_5:.4f},{cur_NDCG_10:.4f}")
 
 
 if __name__ == "__main__":
     main()
+
+    import smtplib
+    from email.mime.text import MIMEText
+    mail_host = 'smtp.qq.com'
+    mail_code = 'ouzplpngooqndjcb'
+    sender = '1849334588@qq.com'
+    receiver = 'esperanto1949@foxmail.com'
+
+    task = '[v519: evaluate cllm4rec]'
+    message = MIMEText('Task {task} Finished'.format(task = task), 'plain', 'utf-8')
+    message['Subject'] = 'Auto Email'
+    message['From'] = sender
+    message['To'] = receiver
+
+    server = smtplib.SMTP_SSL("smtp.qq.com", 465)
+    server.login(sender, mail_code)
+    server.sendmail(sender, receiver, message.as_string())
+
+    server.quit()
