@@ -298,11 +298,12 @@ def main():
     print(f"Final Testing Results:")
     print(f"Recall@1: {cur_recall_1:.4f}")
     print(f"Recall@5: {cur_recall_5:.4f}")
-    print(f"Recall@40: {cur_recall_10:.4f}")
-    print(f"NDCG@100: {cur_NDCG_5:.4f}")
-    print(f"NDCG@100: {cur_NDCG_10:.4f}")
-    
-    results_path = os.path.join(pretrained_root, f"results_{args.lambda_V}.txt")
+    print(f"Recall@10: {cur_recall_10:.4f}")
+    print(f"NDCG@5: {cur_NDCG_5:.4f}")
+    print(f"NDCG@10: {cur_NDCG_10:.4f}")
+
+    data_root = os.path.join('/datain/v-yinju/rqvae-zzx/data/CLLM4Rec', dataset)
+    results_path = os.path.join(data_root, f"results_{args.lambda_V}.txt")
     with fsspec.open(results_path, "w") as f:
         f.write("Recall@1,Recall@5,Recall@10,NDCG@5,NDCG@10\n")
         f.write(f"{cur_recall_1:.4f},{cur_recall_5:.4f},{cur_recall_10:.4f},{cur_NDCG_5:.4f},{cur_NDCG_10:.4f}")
