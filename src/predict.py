@@ -3,6 +3,7 @@ MIT License
 Copyright (c) 2024 Yaochen Zhu
 '''
 
+import time
 import re
 import os
 import sys
@@ -264,6 +265,7 @@ def main():
     cur_NDCG_10 = 0
 
     with torch.no_grad():
+        start = time.time()
         for input_ids, train_mat, target_mat, attention_mask in test_data_loader:
             # Move tensors to the correct device
             input_ids = input_ids.to(device)
@@ -287,7 +289,8 @@ def main():
             cur_recall_10 += Recall_at_k(target_mat, item_scores, k=10, agg="sum")
             cur_NDCG_5 += NDCG_at_k(target_mat, item_scores, k=5, agg="sum")
             cur_NDCG_10 += NDCG_at_k(target_mat, item_scores, k=10, agg="sum")
-
+    end = time.time()
+    print('Inference Time:', (start - end) / len(test_data_gen))
     # Calculate average Recall@K and NDCG@K for the validation set
     cur_recall_1 /= len(test_data_gen)
     cur_recall_5 /= len(test_data_gen)
